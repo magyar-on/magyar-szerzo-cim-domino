@@ -136,8 +136,8 @@
         .title-side { background-color: var(--title-blue); border-radius: 6px 0 0 6px; }
         .author-side { background-color: var(--author-blue); border-radius: 0 6px 6px 0; border-left: 1px solid rgba(255,255,255,0.2); }
 
-        .success { border-color: #2ecc71 !important; box-shadow: 0 0 15px rgba(46, 204, 113, 0.5) !important; }
-        .error { border-color: #e74c3c !important; box-shadow: 0 0 15px rgba(231, 76, 60, 0.3) !important; }
+        .success { border: 2px solid #2ecc71 !important; box-shadow: 0 0 8px rgba(46, 204, 113, 0.6) !important; }
+        .error   { border: 2px solid #ff1a00 !important; box-shadow: 0 0 8px rgba(255, 26, 0, 0.6) !important; }
 
         /* Zoom controls */
         #zoom-controls {
@@ -415,40 +415,56 @@
     }
 
     function checkGame() {
-        const dW = 160;
+        const dW = 160, dH = 55, thr = 5;
         const doms = Array.from(document.querySelectorAll('.domino'));
-        doms.forEach(d => { d.dataset.valid = "false"; d.dataset.hasNeighbor = "false"; });
+
+        // Először töröljük az előző jelölést
+        doms.forEach(d => {
+            d.classList.remove('success', 'error');
+            delete d.dataset.hasNeighbor;
+            delete d.dataset.hasValidPair;
+        });
 
         doms.forEach(d1 => {
             const x1 = parseFloat(d1.style.left);
             const y1 = parseFloat(d1.style.top);
-            const author = d1.querySelector('.author-side').innerText;
+            const author1 = d1.querySelector('.author-side').innerText.trim();
+            const title1  = d1.querySelector('.title-side').innerText.trim();
 
             doms.forEach(d2 => {
                 if (d1 === d2) return;
                 const x2 = parseFloat(d2.style.left);
                 const y2 = parseFloat(d2.style.top);
-                const title = d2.querySelector('.title-side').innerText;
+                const author2 = d2.querySelector('.author-side').innerText.trim();
+                const title2  = d2.querySelector('.title-side').innerText.trim();
 
-                const isRight = Math.abs((x1 + dW) - x2) < 15 && Math.abs(y1 - y2) < 15;
-                const isBelow = Math.abs(x1 - x2) < 15 && Math.abs((y1 + 55) - y2) < 15;
-                const isAbove = Math.abs(x1 - x2) < 15 && Math.abs(y1 - (y2 + 55)) < 15;
+                // Vízszintes érintkezés: jobb/bal szélek találkoznak, azonos sor
+                const touchRight = Math.abs((x1 + dW) - x2) < thr && Math.abs(y1 - y2) < thr;
+                const touchLeft  = Math.abs(x1 - (x2 + dW)) < thr && Math.abs(y1 - y2) < thr;
+                // Függőleges érintkezés: felső/alsó szélek találkoznak, x-ben átfedés van
+                const overlapX = x1 < x2 + dW && x1 + dW > x2;
+                const touchBottom = Math.abs((y1 + dH) - y2) < thr && overlapX;
+                const touchTop    = Math.abs(y1 - (y2 + dH)) < thr && overlapX;
+                const touches = touchRight || touchLeft || touchBottom || touchTop;
 
-                if (isRight || isBelow || isAbove) {
-                    d1.dataset.hasNeighbor = "true";
-                    d2.dataset.hasNeighbor = "true";
-                    if (helyesParing[author] === title) {
-                        d1.dataset.valid = "true";
-                        d2.dataset.valid = "true";
-                    }
+                if (!touches) return;
+
+                d1.dataset.hasNeighbor = "true";
+                d2.dataset.hasNeighbor = "true";
+
+                // Helyes pár: d1 szerzője = d2 címe, VAGY d2 szerzője = d1 címe
+                const pairOk = (helyesParing[author1] === title2) || (helyesParing[author2] === title1);
+                if (pairOk) {
+                    d1.dataset.hasValidPair = "true";
+                    d2.dataset.hasValidPair = "true";
                 }
             });
         });
 
+        // Végső jelölés: ha van érintkezés, de egyetlen helyes pár sincs → piros
         doms.forEach(d => {
-            d.classList.remove('success', 'error');
             if (d.dataset.hasNeighbor === "true") {
-                d.classList.add(d.dataset.valid === "true" ? 'success' : 'error');
+                d.classList.add(d.dataset.hasValidPair === "true" ? 'success' : 'error');
             }
         });
     }
@@ -458,15 +474,19 @@
         toggleBtn.innerHTML = header.classList.contains('collapsed') ? '▼' : '▲';
     }
 
-    function init() {
-        // Spread dominoes in a 4-column grid layout on the large canvas
-        const cols = 4;
-        const spacingX = 200;
-        const spacingY = 80;
-        const startX = 40;
-        const startY = 40;
+    function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
 
-        dominoAdatok.forEach((d, i) => {
+    function init() {
+        const shuffled = shuffleArray([...dominoAdatok]);
+        const cols = 4, spacingX = 210, spacingY = 90, startX = 40, startY = 40;
+
+        shuffled.forEach((d, i) => {
             const el = document.createElement('div');
             el.className = 'domino';
             const col = i % cols;
