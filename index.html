@@ -20,10 +20,9 @@
             overflow: hidden;
             background-color: #d1d8e0;
             font-family: 'Segoe UI', sans-serif;
-            touch-action: none; /* Letiltja a böngésző alapértelmezett húzását */
+            touch-action: none;
         }
 
-        /* Összecsukható fejléc */
         header {
             background-color: var(--header-bg);
             width: 100%;
@@ -60,24 +59,20 @@
             font-weight: bold; cursor: pointer;
         }
 
-        /* Játéktér Konténer */
         #viewport {
             width: 100vw; height: 100vh;
             cursor: grab;
-            overflow: hidden;
             position: relative;
         }
 
-        /* A hatalmas asztal */
         #world {
             position: absolute;
-            width: 3000px; height: 3000px;
-            background-image: radial-gradient(#a5b1c2 1px, transparent 1px);
-            background-size: 40px 40px;
+            width: 4000px; height: 4000px;
+            background-image: radial-gradient(#a5b1c2 1.5px, transparent 1.5px);
+            background-size: 50px 50px;
             transform-origin: 0 0;
         }
 
-        /* Dominó kártyák */
         .domino {
             width: var(--dom-w);
             height: var(--dom-h);
@@ -110,7 +105,7 @@
         <h1>Irodalmi Dominó</h1>
         <p class="instruction">Párosítsd a szerzőket és a műveket!</p>
         <div class="controls">
-            <input type="range" id="zoom-slider" min="0.4" max="1.5" step="0.1" value="1">
+            <input type="range" id="zoom-slider" min="0.3" max="1.5" step="0.1" value="1">
             <button id="check-btn" onclick="checkGame()">Ellenőrzés</button>
         </div>
     </div>
@@ -150,24 +145,27 @@
     const viewport = document.getElementById('viewport');
     const slider = document.getElementById('zoom-slider');
 
-    let camX = -1000, camY = -1200, zoom = 1;
+    // Kamera alaphelyzet: a 4000x4000-as világ közepe
+    let camX = window.innerWidth / 2 - 2000;
+    let camY = window.innerHeight / 2 - 2000;
+    let zoom = window.innerWidth < 600 ? 0.6 : 1; 
+    slider.value = zoom;
 
     function toggleHeader() {
         document.getElementById('header').classList.toggle('collapsed');
         document.getElementById('toggle-btn').innerHTML = document.getElementById('header').classList.contains('collapsed') ? '▼' : '▲';
     }
 
-    // Kamera frissítése
     function updateWorld() {
         world.style.transform = `translate(${camX}px, ${camY}px) scale(${zoom})`;
     }
 
     slider.oninput = (e) => {
-        zoom = e.target.value;
+        zoom = parseFloat(e.target.value);
         updateWorld();
     };
 
-    // Asztal mozgatása
+    // Világ (asztal) mozgatása
     viewport.onpointerdown = (e) => {
         if (e.target !== viewport) return;
         let startX = e.clientX - camX;
@@ -183,11 +181,12 @@
 
     function init() {
         updateWorld();
-        // 6x3-as rács az asztal közepén (X: 1200-tól, Y: 1200-tól)
+        // Rács az asztal közepén
         let slots = [];
+        const startX = 1700, startY = 1800;
         for(let r=0; r<3; r++) {
             for(let c=0; c<6; c++) {
-                slots.push({ x: 1200 + c * 180, y: 1200 + r * 100 });
+                slots.push({ x: startX + c * 180, y: startY + r * 100 });
             }
         }
         slots.sort(() => Math.random() - 0.5);
@@ -199,23 +198,30 @@
             el.style.top = slots[i].y + 'px';
             el.innerHTML = `<div class="part title-side">${d.bal}</div><div class="part author-side">${d.jobb}</div>`;
             
-            // Dominó mozgatása
-            let offX, offY;
+            let dragStartX, dragStartY, initialDomX, initialDomY;
+
             el.onpointerdown = (e) => {
                 e.stopPropagation();
                 el.setPointerCapture(e.pointerId);
-                const rect = el.getBoundingClientRect();
-                offX = (e.clientX - rect.left) / zoom;
-                offY = (e.clientY - rect.top) / zoom;
+                
+                // Kattintáskori relatív pozíciók megjegyzése
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                initialDomX = parseFloat(el.style.left);
+                initialDomY = parseFloat(el.style.top);
+                
                 el.classList.remove('success', 'error');
                 el.style.zIndex = 2000;
 
                 el.onpointermove = (ev) => {
-                    let worldX = (ev.clientX - camX) / zoom - offX;
-                    let worldY = (ev.clientY - camY) / zoom - offY;
-                    el.style.left = worldX + 'px';
-                    el.style.top = worldY + 'px';
-                    // Mágnesesség
+                    // Kiszámoljuk a mozgás különbségét, osztva a zoommal
+                    let dx = (ev.clientX - dragStartX) / zoom;
+                    let dy = (ev.clientY - dragStartY) / zoom;
+                    
+                    el.style.left = (initialDomX + dx) + 'px';
+                    el.style.top = (initialDomY + dy) + 'px';
+                    
+                    // Stabil mágnesesség
                     snap(el);
                 };
                 el.onpointerup = () => { el.onpointermove = null; el.style.zIndex = 10; };
@@ -228,22 +234,22 @@
         const others = document.querySelectorAll('.domino');
         const x1 = parseFloat(active.style.left);
         const y1 = parseFloat(active.style.top);
+        const threshold = 25;
 
         others.forEach(other => {
             if (other === active) return;
             const x2 = parseFloat(other.style.left);
             const y2 = parseFloat(other.style.top);
-            const dist = 25;
 
-            // Mellé
-            if (Math.abs(y1 - y2) < dist) {
-                if (Math.abs((x1 + 160) - x2) < dist) { active.style.left = (x2 - 160) + "px"; active.style.top = y2 + "px"; }
-                if (Math.abs(x1 - (x2 + 160)) < dist) { active.style.left = (x2 + 160) + "px"; active.style.top = y2 + "px"; }
+            // Vízszintes
+            if (Math.abs(y1 - y2) < threshold) {
+                if (Math.abs((x1 + 160) - x2) < threshold) { active.style.left = (x2 - 160) + "px"; active.style.top = y2 + "px"; }
+                if (Math.abs(x1 - (x2 + 160)) < threshold) { active.style.left = (x2 + 160) + "px"; active.style.top = y2 + "px"; }
             }
-            // Alá-Fölé (lépcsősen)
-            if (Math.abs((x1 + 80) - x2) < dist) {
-                if (Math.abs((y1 + 50) - y2) < dist) { active.style.left = (x2 - 80) + "px"; active.style.top = (y2 - 50) + "px"; }
-                if (Math.abs(y1 - (y2 + 50)) < dist) { active.style.left = (x2 - 80) + "px"; active.style.top = (y2 + 50) + "px"; }
+            // Függőleges
+            if (Math.abs((x1 + 80) - x2) < threshold) {
+                if (Math.abs((y1 + 50) - y2) < threshold) { active.style.left = (x2 - 80) + "px"; active.style.top = (y2 - 50) + "px"; }
+                if (Math.abs(y1 - (y2 + 50)) < threshold) { active.style.left = (x2 - 80) + "px"; active.style.top = (y2 + 50) + "px"; }
             }
         });
     }
