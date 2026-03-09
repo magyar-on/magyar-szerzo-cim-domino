@@ -10,9 +10,11 @@
             --author-blue: #00167a;
             --title-blue: #5ca3ff;
             --text-dark: #2c3e50;
-            --domino-w: clamp(115px, 28vw, 160px);
-            --domino-h: clamp(45px, 12vw, 55px);
+            --domino-w: 160px;
+            --domino-h: 55px;
         }
+
+        * { box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', Tahoma, sans-serif;
@@ -23,7 +25,7 @@
             align-items: center;
             overflow: hidden;
             height: 100vh;
-            touch-action: none; 
+            touch-action: none;
         }
 
         header {
@@ -35,6 +37,7 @@
             z-index: 100;
             transition: transform 0.4s ease;
             position: relative;
+            flex-shrink: 0;
         }
 
         header.collapsed { transform: translateY(-100%); }
@@ -76,12 +79,27 @@
             font-size: 14px;
         }
 
-        #game-board {
+        /* Viewport container - clips the visible area */
+        #viewport {
             flex-grow: 1;
             width: 100%;
             position: relative;
+            overflow: hidden;
             background-image: radial-gradient(#ced6e0 1px, transparent 1px);
             background-size: 30px 30px;
+            cursor: grab;
+        }
+
+        #viewport.panning { cursor: grabbing; }
+
+        /* The infinite canvas that gets transformed */
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3000px;
+            height: 3000px;
+            transform-origin: 0 0;
         }
 
         .domino {
@@ -99,6 +117,8 @@
             touch-action: none;
         }
 
+        .domino:active { cursor: grabbing; }
+
         .part {
             flex: 1;
             display: flex;
@@ -106,7 +126,7 @@
             justify-content: center;
             padding: 4px;
             text-align: center;
-            font-size: calc(var(--domino-h) * 0.22);
+            font-size: 11px;
             font-weight: 700;
             line-height: 1.1;
             pointer-events: none;
@@ -116,8 +136,43 @@
         .title-side { background-color: var(--title-blue); border-radius: 6px 0 0 6px; }
         .author-side { background-color: var(--author-blue); border-radius: 0 6px 6px 0; border-left: 1px solid rgba(255,255,255,0.2); }
 
-        .success { border-color: #2ecc71 !important; box-shadow: 0 0 15px rgba(46, 204, 113, 0.5); }
-        .error { border-color: #e74c3c !important; }
+        .success { border-color: #2ecc71 !important; box-shadow: 0 0 15px rgba(46, 204, 113, 0.5) !important; }
+        .error { border-color: #e74c3c !important; box-shadow: 0 0 15px rgba(231, 76, 60, 0.3) !important; }
+
+        /* Zoom controls */
+        #zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 200;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: var(--author-blue);
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+
+        #zoom-level {
+            text-align: center;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--author-blue);
+        }
     </style>
 </head>
 <body>
@@ -131,7 +186,15 @@
     <button id="toggle-header" onclick="toggleHeader()">▲</button>
 </header>
 
-<div id="game-board"></div>
+<div id="viewport">
+    <div id="canvas"></div>
+</div>
+
+<div id="zoom-controls">
+    <button class="zoom-btn" onclick="zoomBy(0.2)">+</button>
+    <div id="zoom-level">100%</div>
+    <button class="zoom-btn" onclick="zoomBy(-0.2)">−</button>
+</div>
 
 <script>
     const helyesParing = {
@@ -176,117 +239,200 @@
         { bal: "Szigeti veszedelem", jobb: "Arany János" }
     ];
 
-    const board = document.getElementById('game-board');
+    const viewport = document.getElementById('viewport');
+    const canvas = document.getElementById('canvas');
     const header = document.getElementById('main-header');
     const toggleBtn = document.getElementById('toggle-header');
 
-    function toggleHeader() {
-        header.classList.toggle('collapsed');
-        toggleBtn.innerHTML = header.classList.contains('collapsed') ? '▼' : '▲';
+    // --- Canvas pan/zoom state ---
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    const MIN_SCALE = 0.3;
+    const MAX_SCALE = 2.0;
+
+    function applyTransform() {
+        canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
     }
 
-    function init() {
-        const boardWidth = window.innerWidth;
-        const boardHeight = board.clientHeight || (window.innerHeight - 100);
-        
-        dominoAdatok.forEach((d, i) => {
-            const el = document.createElement('div');
-            el.className = 'domino';
-            
-            // Központi területre rendezés, hogy mobilon se lógjon le
-            const x = Math.random() * (boardWidth - 160);
-            const y = Math.random() * (boardHeight - 80);
-            
-            el.style.left = Math.max(10, x) + 'px';
-            el.style.top = Math.max(10, y) + 'px';
-            el.innerHTML = `<div class="part title-side">${d.bal}</div><div class="part author-side">${d.jobb}</div>`;
-            makeDraggable(el);
-            board.appendChild(el);
-        });
+    function zoomBy(delta, cx, cy) {
+        const vRect = viewport.getBoundingClientRect();
+        // zoom center defaults to viewport center
+        const centerX = (cx !== undefined ? cx : vRect.width / 2);
+        const centerY = (cy !== undefined ? cy : vRect.height / 2);
+
+        const oldScale = scale;
+        scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale + delta));
+
+        // Adjust pan so zoom is centered on pinch/cursor point
+        panX = centerX - (centerX - panX) * (scale / oldScale);
+        panY = centerY - (centerY - panY) * (scale / oldScale);
+
+        applyTransform();
     }
 
+    // --- Mouse wheel zoom ---
+    viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const vRect = viewport.getBoundingClientRect();
+        const cx = e.clientX - vRect.left;
+        const cy = e.clientY - vRect.top;
+        zoomBy(e.deltaY < 0 ? 0.1 : -0.1, cx, cy);
+    }, { passive: false });
+
+    // --- Pan & Pinch-to-zoom with touch ---
+    let panPointers = {};
+    let lastPinchDist = null;
+    let isPanning = false;
+    let panStartX, panStartY, panStartPanX, panStartPanY;
+
+    viewport.addEventListener('pointerdown', (e) => {
+        // Only pan if NOT hitting a domino
+        if (e.target.closest('.domino')) return;
+        panPointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        const ids = Object.keys(panPointers);
+
+        if (ids.length === 1) {
+            isPanning = true;
+            panStartX = e.clientX;
+            panStartY = e.clientY;
+            panStartPanX = panX;
+            panStartPanY = panY;
+            viewport.classList.add('panning');
+        }
+        viewport.setPointerCapture(e.pointerId);
+    });
+
+    viewport.addEventListener('pointermove', (e) => {
+        if (!panPointers[e.pointerId]) return;
+        panPointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        const ids = Object.keys(panPointers);
+
+        if (ids.length === 2) {
+            // Pinch zoom
+            const [a, b] = ids.map(id => panPointers[id]);
+            const dist = Math.hypot(b.x - a.x, b.y - a.y);
+            if (lastPinchDist !== null) {
+                const vRect = viewport.getBoundingClientRect();
+                const midX = (a.x + b.x) / 2 - vRect.left;
+                const midY = (a.y + b.y) / 2 - vRect.top;
+                const delta = (dist - lastPinchDist) * 0.008;
+                zoomBy(delta, midX, midY);
+            }
+            lastPinchDist = dist;
+            isPanning = false;
+        } else if (ids.length === 1 && isPanning) {
+            panX = panStartPanX + (e.clientX - panStartX);
+            panY = panStartPanY + (e.clientY - panStartY);
+            applyTransform();
+        }
+    });
+
+    viewport.addEventListener('pointerup', (e) => {
+        delete panPointers[e.pointerId];
+        if (Object.keys(panPointers).length < 2) lastPinchDist = null;
+        if (Object.keys(panPointers).length === 0) {
+            isPanning = false;
+            viewport.classList.remove('panning');
+        }
+    });
+
+    viewport.addEventListener('pointercancel', (e) => {
+        delete panPointers[e.pointerId];
+        if (Object.keys(panPointers).length === 0) {
+            isPanning = false;
+            viewport.classList.remove('panning');
+            lastPinchDist = null;
+        }
+    });
+
+    // --- Domino drag (in canvas coordinates) ---
     function makeDraggable(el) {
-        let offsetX, offsetY;
-        el.onpointerdown = (e) => {
+        let startCanvasX, startCanvasY, startElX, startElY;
+        let isDragging = false;
+
+        el.addEventListener('pointerdown', (e) => {
+            e.stopPropagation(); // don't trigger viewport pan
+            isDragging = true;
             el.setPointerCapture(e.pointerId);
-            const rect = el.getBoundingClientRect();
-            offsetX = e.clientX - rect.left;
-            offsetY = e.clientY - rect.top;
             el.classList.remove('success', 'error');
             el.style.zIndex = 1000;
 
+            // Convert screen coords to canvas coords
+            const vRect = viewport.getBoundingClientRect();
+            startCanvasX = (e.clientX - vRect.left - panX) / scale;
+            startCanvasY = (e.clientY - vRect.top - panY) / scale;
+            startElX = parseFloat(el.style.left) || 0;
+            startElY = parseFloat(el.style.top) || 0;
+
             el.onpointermove = (ev) => {
-                let boardRect = board.getBoundingClientRect();
-                let x = ev.clientX - offsetX;
-                let y = ev.clientY - offsetY - boardRect.top;
-                el.style.left = x + 'px';
-                el.style.top = y + 'px';
+                if (!isDragging) return;
+                const cx = (ev.clientX - vRect.left - panX) / scale;
+                const cy = (ev.clientY - vRect.top - panY) / scale;
+                el.style.left = (startElX + cx - startCanvasX) + 'px';
+                el.style.top  = (startElY + cy - startCanvasY) + 'px';
                 snap(el);
             };
 
             el.onpointerup = () => {
+                isDragging = false;
                 el.style.zIndex = 10;
                 el.onpointermove = null;
                 el.releasePointerCapture(e.pointerId);
             };
-        };
+        });
     }
 
     function snap(active) {
-        const r1 = active.getBoundingClientRect();
-        const others = document.querySelectorAll('.domino');
-        const dW = active.offsetWidth;
-        const dH = active.offsetHeight;
+        const dW = parseFloat(getComputedStyle(active).width);
+        const dH = parseFloat(getComputedStyle(active).height);
+        const ax = parseFloat(active.style.left);
+        const ay = parseFloat(active.style.top);
         const threshold = 22;
 
-        others.forEach(other => {
+        document.querySelectorAll('.domino').forEach(other => {
             if (other === active) return;
-            const r2 = other.getBoundingClientRect();
-            const oX = parseFloat(other.style.left);
-            const oY = parseFloat(other.style.top);
+            const ox = parseFloat(other.style.left);
+            const oy = parseFloat(other.style.top);
 
-            const nearY = Math.abs(r1.top - r2.top) < threshold;
-            const nearX_Half = Math.abs(r1.left - (r2.left + dW/2)) < threshold;
-            const nearX_HalfRev = Math.abs((r1.left + dW/2) - r2.left) < threshold;
-
-            if (nearY && Math.abs(r1.right - r2.left) < threshold) { 
-                active.style.left = (oX - dW) + "px"; active.style.top = oY + "px"; 
+            // right of other
+            if (Math.abs(ay - oy) < threshold && Math.abs((ax + dW) - ox) < threshold) {
+                active.style.left = (ox - dW) + 'px'; active.style.top = oy + 'px';
             }
-            if (nearY && Math.abs(r1.left - r2.right) < threshold) { 
-                active.style.left = (oX + dW) + "px"; active.style.top = oY + "px"; 
+            // left of other
+            if (Math.abs(ay - oy) < threshold && Math.abs(ax - (ox + dW)) < threshold) {
+                active.style.left = (ox + dW) + 'px'; active.style.top = oy + 'px';
             }
-            if (nearX_Half && Math.abs(r1.bottom - r2.top) < threshold) { 
-                active.style.left = (oX + dW/2) + "px"; active.style.top = (oY - dH) + "px"; 
+            // below other (half-width offset)
+            if (Math.abs((ax + dW/2) - (ox + dW/2)) < threshold && Math.abs((ay + dH) - oy) < threshold) {
+                active.style.left = ox + 'px'; active.style.top = (oy - dH) + 'px';
             }
-            if (nearX_Half && Math.abs(r1.top - r2.bottom) < threshold) { 
-                active.style.left = (oX + dW/2) + "px"; active.style.top = (oY + dH) + "px"; 
-            }
-            if (nearX_HalfRev && Math.abs(r1.bottom - r2.top) < threshold) { 
-                active.style.left = (oX - dW/2) + "px"; active.style.top = (oY - dH) + "px"; 
-            }
-            if (nearX_HalfRev && Math.abs(r1.top - r2.bottom) < threshold) { 
-                active.style.left = (oX - dW/2) + "px"; active.style.top = (oY + dH) + "px"; 
+            if (Math.abs((ax + dW/2) - (ox + dW/2)) < threshold && Math.abs(ay - (oy + dH)) < threshold) {
+                active.style.left = ox + 'px'; active.style.top = (oy + dH) + 'px';
             }
         });
     }
 
     function checkGame() {
-        const dW = document.querySelector('.domino').offsetWidth;
+        const dW = 160;
         const doms = Array.from(document.querySelectorAll('.domino'));
         doms.forEach(d => { d.dataset.valid = "false"; d.dataset.hasNeighbor = "false"; });
 
         doms.forEach(d1 => {
-            const r1 = d1.getBoundingClientRect();
+            const x1 = parseFloat(d1.style.left);
+            const y1 = parseFloat(d1.style.top);
             const author = d1.querySelector('.author-side').innerText;
 
             doms.forEach(d2 => {
                 if (d1 === d2) return;
-                const r2 = d2.getBoundingClientRect();
+                const x2 = parseFloat(d2.style.left);
+                const y2 = parseFloat(d2.style.top);
                 const title = d2.querySelector('.title-side').innerText;
 
-                const isRight = Math.abs(r1.right - r2.left) < 15 && Math.abs(r1.top - r2.top) < 15;
-                const isBelow = Math.abs(r1.left + dW/2 - r2.left) < 15 && Math.abs(r1.bottom - r2.top) < 15;
-                const isAbove = Math.abs(r1.left + dW/2 - r2.left) < 15 && Math.abs(r1.top - r2.bottom) < 15;
+                const isRight = Math.abs((x1 + dW) - x2) < 15 && Math.abs(y1 - y2) < 15;
+                const isBelow = Math.abs(x1 - x2) < 15 && Math.abs((y1 + 55) - y2) < 15;
+                const isAbove = Math.abs(x1 - x2) < 15 && Math.abs(y1 - (y2 + 55)) < 15;
 
                 if (isRight || isBelow || isAbove) {
                     d1.dataset.hasNeighbor = "true";
@@ -302,13 +448,39 @@
         doms.forEach(d => {
             d.classList.remove('success', 'error');
             if (d.dataset.hasNeighbor === "true") {
-                if (d.dataset.valid === "true") d.classList.add('success');
-                else d.classList.add('error');
+                d.classList.add(d.dataset.valid === "true" ? 'success' : 'error');
             }
         });
     }
 
-    // Indítás
+    function toggleHeader() {
+        header.classList.toggle('collapsed');
+        toggleBtn.innerHTML = header.classList.contains('collapsed') ? '▼' : '▲';
+    }
+
+    function init() {
+        // Spread dominoes in a 4-column grid layout on the large canvas
+        const cols = 4;
+        const spacingX = 200;
+        const spacingY = 80;
+        const startX = 40;
+        const startY = 40;
+
+        dominoAdatok.forEach((d, i) => {
+            const el = document.createElement('div');
+            el.className = 'domino';
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            el.style.left = (startX + col * spacingX) + 'px';
+            el.style.top  = (startY + row * spacingY) + 'px';
+            el.innerHTML = `<div class="part title-side">${d.bal}</div><div class="part author-side">${d.jobb}</div>`;
+            makeDraggable(el);
+            canvas.appendChild(el);
+        });
+
+        applyTransform();
+    }
+
     window.onload = init;
 </script>
 </body>
