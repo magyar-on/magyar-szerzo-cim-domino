@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRODALMI DOMINÓ</title>
+    <style>
+        :root {
+            --header-bg: #f0f7ff;
+            --author-blue: #3498db; /* Kellemes középkék a szerzőnek */
+            --title-blue: #d1e8ff;  /* Nagyon világos jégkék a címnek */
+            --text-dark: #2c3e50;
+            --domino-w: 160px; 
+            --domino-h: 50px;  
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        header {
+            background-color: var(--header-bg);
+            width: 100%;
+            padding: 15px 0;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            z-index: 100;
+        }
+
+        h1 { margin: 0; text-transform: uppercase; font-weight: 800; color: var(--text-dark); font-size: 24px; }
+        .instruction { color: #57606f; font-weight: 600; margin: 5px 0; font-size: 14px; }
+
+        #check-btn {
+            padding: 10px 40px;
+            background-color: var(--author-blue);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        #check-btn:hover { background-color: #2980b9; transform: scale(1.03); }
+
+        #game-board {
+            flex-grow: 1;
+            width: 100%;
+            position: relative;
+            background-image: radial-gradient(#ced6e0 1.5px, transparent 1.5px);
+            background-size: 30px 30px;
+        }
+
+        .domino {
+            width: var(--domino-w);
+            height: var(--domino-h);
+            position: absolute;
+            display: flex;
+            cursor: grab;
+            user-select: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background: white;
+            border: 3px solid transparent;
+            z-index: 10;
+        }
+        .domino:active { cursor: grabbing; z-index: 1000; }
+
+        .part {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.2;
+            pointer-events: none;
+        }
+
+        .title-side {
+            background-color: var(--title-blue);
+            color: var(--text-dark);
+            border-radius: 5px 0 0 5px;
+        }
+
+        .author-side {
+            background-color: var(--author-blue);
+            color: white;
+            border-radius: 0 5px 5px 0;
+        }
+
+        /* Visszajelzés színei */
+        .success { border-color: #2ecc71 !important; box-shadow: 0 0 15px rgba(46, 204, 113, 0.4); }
+        .error { border-color: #e74c3c !important; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>IRODALMI DOMINÓ</h1>
+    <p class="instruction">Építs bárerre: a sötétebb kék névhez illeszd a világoskék művét!</p>
+    <button id="check-btn" onclick="checkGame()">ELLENŐRZÉS</button>
+</header>
+
+<div id="game-board"></div>
+
+<script>
+    const helyesParing = {
+        "Petőfi Sándor": "A helység kalapácsa",
+        "Mikszáth Kálmán": "Beszterce ostroma",
+        "Jókai Mór": "Az arany ember",
+        "Herczeg Ferenc": "Az élet kapuja",
+        "Vörösmarty Mihály": "Csongor és Tünde",
+        "Móricz Zsigmond": "Úri muri",
+        "Madách Imre": "Az ember tragédiája",
+        "Kosztolányi Dezső": "Édes Anna",
+        "Szabó Magda": "Az ajtó",
+        "Katona József": "Bánk bán",
+        "Karinthy Frigyes": "Így írtok ti",
+        "Mikes Kelemen": "Törökországi levelek",
+        "Babits Mihály": "Jónás könyve",
+        "Wass Albert": "Adjátok vissza a hegyeimet!",
+        "Csokonai Vitéz Mihály": "Dorottya, vagyis a dámák diadala a Fársángon",
+        "Örkény István": "Tóték",
+        "Zrinyi Miklós": "Szigeti veszedelem",
+        "Arany János": "Toldi estéje"
+    };
+
+    const dominoAdatok = [
+        { bal: "Toldi estéje", jobb: "Petőfi Sándor" },
+        { bal: "A helység kalapácsa", jobb: "Mikszáth Kálmán" },
+        { bal: "Beszterce ostroma", jobb: "Jókai Mór" },
+        { bal: "Az arany ember", jobb: "Herczeg Ferenc" },
+        { bal: "Az élet kapuja", jobb: "Vörösmarty Mihály" },
+        { bal: "Csongor és Tünde", jobb: "Móricz Zsigmond" },
+        { bal: "Úri muri", jobb: "Madách Imre" },
+        { bal: "Az ember tragédiája", jobb: "Kosztolányi Dezső" },
+        { bal: "Édes Anna", jobb: "Szabó Magda" },
+        { bal: "Az ajtó", jobb: "Katona József" },
+        { bal: "Bánk bán", jobb: "Karinthy Frigyes" },
+        { bal: "Így írtok ti", jobb: "Mikes Kelemen" },
+        { bal: "Törökországi levelek", jobb: "Babits Mihály" },
+        { bal: "Jónás könyve", jobb: "Wass Albert" },
+        { bal: "Adjátok vissza a hegyeimet!", jobb: "Csokonai Vitéz Mihály" },
+        { bal: "Dorottya, vagyis a dámák diadala a Fársángon", jobb: "Örkény István" },
+        { bal: "Tóték", jobb: "Zrinyi Miklós" },
+        { bal: "Szigeti veszedelem", jobb: "Arany János" }
+    ];
+
+    const board = document.getElementById('game-board');
+    const dW = 160;
+    const dH = 50;
+    const halfW = dW / 2;
+
+    function init() {
+        const cols = Math.floor(window.innerWidth / (dW + 30));
+        let grid = [];
+        for(let r=0; r<6; r++) for(let c=0; c<cols; c++) grid.push({x: c*(dW+20)+20, y: r*(dH+20)+40});
+        grid.sort(() => Math.random() - 0.5);
+
+        dominoAdatok.forEach((d, i) => {
+            const el = document.createElement('div');
+            el.className = 'domino';
+            const pos = grid[i] || {x: 20, y: 20};
+            el.style.left = pos.x + 'px';
+            el.style.top = pos.y + 'px';
+            el.innerHTML = `<div class="part title-side">${d.bal}</div><div class="part author-side">${d.jobb}</div>`;
+            makeDraggable(el);
+            board.appendChild(el);
+        });
+    }
+
+    function makeDraggable(el) {
+        let offsetX, offsetY;
+        el.onmousedown = (e) => {
+            const rect = el.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            el.classList.remove('success', 'error');
+
+            const move = (ev) => {
+                let x = ev.clientX - offsetX;
+                let y = ev.clientY - offsetY - board.getBoundingClientRect().top;
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                snap(el);
+            };
+            const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', up);
+        };
+    }
+
+    function snap(active) {
+        const r1 = active.getBoundingClientRect();
+        const others = document.querySelectorAll('.domino');
+        
+        others.forEach(other => {
+            if (other === active) return;
+            const r2 = other.getBoundingClientRect();
+            const oX = parseInt(other.style.left);
+            const oY = parseInt(other.style.top);
+
+            // Mágnesesség - vízszintesen és függőlegesen is
+            const nearY = Math.abs(r1.top - r2.top) < 25;
+            const nearX_Full = Math.abs(r1.left - r2.left) < 25;
+            const nearX_Half = Math.abs(r1.left - (r2.left + halfW)) < 25;
+            const nearX_HalfRev = Math.abs((r1.left + halfW) - r2.left) < 25;
+
+            // Mellé illesztés
+            if (nearY && Math.abs(r1.right - r2.left) < 25) {
+                active.style.left = (oX - dW) + "px"; active.style.top = oY + "px";
+            }
+            if (nearY && Math.abs(r1.left - r2.right) < 25) {
+                active.style.left = (oX + dW) + "px"; active.style.top = oY + "px";
+            }
+
+            // Függőleges illesztés (lépcsőzetes)
+            if (nearX_Half && Math.abs(r1.bottom - r2.top) < 25) { // Fölé
+                active.style.left = (oX + halfW) + "px"; active.style.top = (oY - dH) + "px";
+            }
+            if (nearX_Half && Math.abs(r1.top - r2.bottom) < 25) { // Alá
+                active.style.left = (oX + halfW) + "px"; active.style.top = (oY + dH) + "px";
+            }
+            if (nearX_HalfRev && Math.abs(r1.bottom - r2.top) < 25) { // Fölé-másik
+                active.style.left = (oX - halfW) + "px"; active.style.top = (oY - dH) + "px";
+            }
+            if (nearX_HalfRev && Math.abs(r1.top - r2.bottom) < 25) { // Alá-másik
+                active.style.left = (oX - halfW) + "px"; active.style.top = (oY + dH) + "px";
+            }
+        });
+    }
+
+    function checkGame() {
+        const doms = Array.from(document.querySelectorAll('.domino'));
+        doms.forEach(d => {
+            d.dataset.valid = "false";
+            d.dataset.hasNeighbor = "false";
+        });
+
+        doms.forEach(d1 => {
+            const r1 = d1.getBoundingClientRect();
+            const author = d1.querySelector('.author-side').innerText;
+
+            doms.forEach(d2 => {
+                if (d1 === d2) return;
+                const r2 = d2.getBoundingClientRect();
+                const title = d2.querySelector('.title-side').innerText;
+
+                // Kapcsolódási pontok vizsgálata: d1 Szerző (jobb fele) érintkezik-e d2 Címével (bal fele)
+                // 1. d2 a d1 JOBB oldalán van
+                const isRight = Math.abs(r1.right - r2.left) < 8 && Math.abs(r1.top - r2.top) < 8;
+                // 2. d2 a d1 ALATT van (lépcsősen)
+                const isBelow = Math.abs(r1.left + halfW - r2.left) < 8 && Math.abs(r1.bottom - r2.top) < 8;
+                // 3. d2 a d1 FÖLÖTT van (lépcsősen)
+                const isAbove = Math.abs(r1.left + halfW - r2.left) < 8 && Math.abs(r1.top - r2.bottom) < 8;
+
+                if (isRight || isBelow || isAbove) {
+                    d1.dataset.hasNeighbor = "true";
+                    d2.dataset.hasNeighbor = "true";
+                    if (helyesParing[author] === title) {
+                        d1.dataset.valid = "true";
+                        d2.dataset.valid = "true";
+                    }
+                }
+            });
+        });
+
+        // Vizuális jelzés alkalmazása
+        doms.forEach(d => {
+            d.classList.remove('success', 'error');
+            if (d.dataset.hasNeighbor === "true") {
+                if (d.dataset.valid === "true") d.classList.add('success');
+                else d.classList.add('error');
+            }
+        });
+    }
+
+    init();
+</script>
+</body>
+</html>
