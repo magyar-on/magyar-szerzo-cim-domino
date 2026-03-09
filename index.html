@@ -10,8 +10,8 @@
             --author-blue: #00167a;
             --title-blue: #5ca3ff;
             --text-dark: #2c3e50;
-            --domino-w: clamp(110px, 28vw, 160px);
-            --domino-h: clamp(42px, 12vw, 55px);
+            --domino-w: clamp(115px, 28vw, 160px);
+            --domino-h: clamp(45px, 12vw, 55px);
         }
 
         body {
@@ -39,17 +39,17 @@
 
         header.collapsed { transform: translateY(-100%); }
 
-        .header-inner { padding: 10px 0 35px 0; }
+        .header-inner { padding: 10px 0 30px 0; }
 
-        h1 { margin: 0; text-transform: uppercase; font-weight: 800; color: var(--text-dark); font-size: clamp(16px, 5vw, 22px); }
-        .instruction { color: #57606f; font-weight: 600; margin: 5px 0; font-size: clamp(11px, 3.5vw, 14px); }
+        h1 { margin: 0; text-transform: uppercase; font-weight: 800; color: var(--text-dark); font-size: clamp(18px, 5vw, 24px); }
+        .instruction { color: #57606f; font-weight: 600; margin: 5px 0; font-size: clamp(12px, 3.5vw, 14px); }
 
         #toggle-header {
             position: absolute;
             bottom: -25px;
             left: 50%;
             transform: translateX(-50%);
-            width: 50px;
+            width: 60px;
             height: 25px;
             background: var(--header-bg);
             border: none;
@@ -59,14 +59,17 @@
             color: var(--author-blue);
             font-weight: bold;
             z-index: 110;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         #check-btn {
-            padding: 8px 25px;
+            padding: 10px 30px;
             background-color: var(--author-blue);
             color: white;
             border: none;
-            border-radius: 20px;
+            border-radius: 25px;
             font-weight: bold;
             margin-top: 5px;
             cursor: pointer;
@@ -78,7 +81,7 @@
             width: 100%;
             position: relative;
             background-image: radial-gradient(#ced6e0 1px, transparent 1px);
-            background-size: 25px 25px;
+            background-size: 30px 30px;
         }
 
         .domino {
@@ -89,13 +92,12 @@
             cursor: grab;
             user-select: none;
             border-radius: 8px;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.12);
             background: white;
             border: 2px solid #fff;
             z-index: 10;
             touch-action: none;
         }
-        .domino:active { cursor: grabbing; z-index: 1000; }
 
         .part {
             flex: 1;
@@ -104,7 +106,7 @@
             justify-content: center;
             padding: 4px;
             text-align: center;
-            font-size: calc(var(--domino-h) * 0.23);
+            font-size: calc(var(--domino-h) * 0.22);
             font-weight: 700;
             line-height: 1.1;
             pointer-events: none;
@@ -114,7 +116,7 @@
         .title-side { background-color: var(--title-blue); border-radius: 6px 0 0 6px; }
         .author-side { background-color: var(--author-blue); border-radius: 0 6px 6px 0; border-left: 1px solid rgba(255,255,255,0.2); }
 
-        .success { border-color: #2ecc71 !important; box-shadow: 0 0 12px rgba(46, 204, 113, 0.6); }
+        .success { border-color: #2ecc71 !important; box-shadow: 0 0 15px rgba(46, 204, 113, 0.5); }
         .error { border-color: #e74c3c !important; }
     </style>
 </head>
@@ -185,16 +187,15 @@
 
     function init() {
         const boardWidth = window.innerWidth;
-        // Biztosítjuk, hogy a magasság ne legyen 0 indításkor
-        const boardHeight = Math.max(window.innerHeight - 150, 300);
+        const boardHeight = board.clientHeight || (window.innerHeight - 100);
         
         dominoAdatok.forEach((d, i) => {
             const el = document.createElement('div');
             el.className = 'domino';
             
-            // Szétszórás a képernyő látható részén
+            // Központi területre rendezés, hogy mobilon se lógjon le
             const x = Math.random() * (boardWidth - 160);
-            const y = Math.random() * (boardHeight - 100);
+            const y = Math.random() * (boardHeight - 80);
             
             el.style.left = Math.max(10, x) + 'px';
             el.style.top = Math.max(10, y) + 'px';
@@ -307,8 +308,8 @@
         });
     }
 
-    // Kis késleltetés az indításnál, hogy a böngésző biztosan betöltse a méreteket
-    setTimeout(init, 100);
+    // Indítás
+    window.onload = init;
 </script>
 </body>
 </html>
