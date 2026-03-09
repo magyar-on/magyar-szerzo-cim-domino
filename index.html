@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="hu">
 <head>
@@ -8,8 +7,8 @@
     <style>
         :root {
             --header-bg: #f0f7ff;
-            --author-blue: #00167a;
-            --title-blue: #5ca3ff;
+            --author-blue: #00167a; /* Sötétkék */
+            --title-blue: #5ca3ff;  /* Világoskék */
             --text-dark: #2c3e50;
             --domino-w: 160px; 
             --domino-h: 50px;  
@@ -48,7 +47,7 @@
             cursor: pointer;
             transition: 0.3s;
         }
-        #check-btn:hover { background-color: #2980b9; transform: scale(1.03); }
+        #check-btn:hover { opacity: 0.9; transform: scale(1.03); }
 
         #game-board {
             flex-grow: 1;
@@ -88,7 +87,7 @@
 
         .title-side {
             background-color: var(--title-blue);
-            color: var(--text-dark);
+            color: white;
             border-radius: 5px 0 0 5px;
         }
 
@@ -98,7 +97,6 @@
             border-radius: 0 5px 5px 0;
         }
 
-        /* Visszajelzés színei */
         .success { border-color: #2ecc71 !important; box-shadow: 0 0 15px rgba(46, 204, 113, 0.4); }
         .error { border-color: #e74c3c !important; }
     </style>
@@ -107,7 +105,7 @@
 
 <header>
     <h1>IRODALMI DOMINÓ</h1>
-    <p class="instruction">Párosítsd a szerzőket és a címeket! Illeszd egymás mellé a megfelelő dominőkat!</p>
+    <p class="instruction">Párosítsd a szerzőket és a címeket! Építs láncot bármelyik irányba!</p>
     <button id="check-btn" onclick="checkGame()">ELLENŐRZÉS</button>
 </header>
 
@@ -151,7 +149,7 @@
         { bal: "Törökországi levelek", jobb: "Babits Mihály" },
         { bal: "Jónás könyve", jobb: "Wass Albert" },
         { bal: "Adjátok vissza a hegyeimet!", jobb: "Csokonai Vitéz Mihály" },
-        { bal: "Dorottya, jobb: "Örkény István" },
+        { bal: "Dorottya", jobb: "Örkény István" }, // JAVÍTVA
         { bal: "Tóték", jobb: "Zrinyi Miklós" },
         { bal: "Szigeti veszedelem", jobb: "Arany János" }
     ];
@@ -210,42 +208,25 @@
             const oX = parseInt(other.style.left);
             const oY = parseInt(other.style.top);
 
-            // Mágnesesség - vízszintesen és függőlegesen is
             const nearY = Math.abs(r1.top - r2.top) < 25;
-            const nearX_Full = Math.abs(r1.left - r2.left) < 25;
             const nearX_Half = Math.abs(r1.left - (r2.left + halfW)) < 25;
             const nearX_HalfRev = Math.abs((r1.left + halfW) - r2.left) < 25;
 
-            // Mellé illesztés
-            if (nearY && Math.abs(r1.right - r2.left) < 25) {
-                active.style.left = (oX - dW) + "px"; active.style.top = oY + "px";
-            }
-            if (nearY && Math.abs(r1.left - r2.right) < 25) {
-                active.style.left = (oX + dW) + "px"; active.style.top = oY + "px";
-            }
+            // Vízszintes
+            if (nearY && Math.abs(r1.right - r2.left) < 25) { active.style.left = (oX - dW) + "px"; active.style.top = oY + "px"; }
+            if (nearY && Math.abs(r1.left - r2.right) < 25) { active.style.left = (oX + dW) + "px"; active.style.top = oY + "px"; }
 
-            // Függőleges illesztés (lépcsőzetes)
-            if (nearX_Half && Math.abs(r1.bottom - r2.top) < 25) { // Fölé
-                active.style.left = (oX + halfW) + "px"; active.style.top = (oY - dH) + "px";
-            }
-            if (nearX_Half && Math.abs(r1.top - r2.bottom) < 25) { // Alá
-                active.style.left = (oX + halfW) + "px"; active.style.top = (oY + dH) + "px";
-            }
-            if (nearX_HalfRev && Math.abs(r1.bottom - r2.top) < 25) { // Fölé-másik
-                active.style.left = (oX - halfW) + "px"; active.style.top = (oY - dH) + "px";
-            }
-            if (nearX_HalfRev && Math.abs(r1.top - r2.bottom) < 25) { // Alá-másik
-                active.style.left = (oX - halfW) + "px"; active.style.top = (oY + dH) + "px";
-            }
+            // Függőleges (felfelé is!)
+            if (nearX_Half && Math.abs(r1.bottom - r2.top) < 25) { active.style.left = (oX + halfW) + "px"; active.style.top = (oY - dH) + "px"; }
+            if (nearX_Half && Math.abs(r1.top - r2.bottom) < 25) { active.style.left = (oX + halfW) + "px"; active.style.top = (oY + dH) + "px"; }
+            if (nearX_HalfRev && Math.abs(r1.bottom - r2.top) < 25) { active.style.left = (oX - halfW) + "px"; active.style.top = (oY - dH) + "px"; }
+            if (nearX_HalfRev && Math.abs(r1.top - r2.bottom) < 25) { active.style.left = (oX - halfW) + "px"; active.style.top = (oY + dH) + "px"; }
         });
     }
 
     function checkGame() {
         const doms = Array.from(document.querySelectorAll('.domino'));
-        doms.forEach(d => {
-            d.dataset.valid = "false";
-            d.dataset.hasNeighbor = "false";
-        });
+        doms.forEach(d => { d.dataset.valid = "false"; d.dataset.hasNeighbor = "false"; });
 
         doms.forEach(d1 => {
             const r1 = d1.getBoundingClientRect();
@@ -256,13 +237,9 @@
                 const r2 = d2.getBoundingClientRect();
                 const title = d2.querySelector('.title-side').innerText;
 
-                // Kapcsolódási pontok vizsgálata: d1 Szerző (jobb fele) érintkezik-e d2 Címével (bal fele)
-                // 1. d2 a d1 JOBB oldalán van
-                const isRight = Math.abs(r1.right - r2.left) < 8 && Math.abs(r1.top - r2.top) < 8;
-                // 2. d2 a d1 ALATT van (lépcsősen)
-                const isBelow = Math.abs(r1.left + halfW - r2.left) < 8 && Math.abs(r1.bottom - r2.top) < 8;
-                // 3. d2 a d1 FÖLÖTT van (lépcsősen)
-                const isAbove = Math.abs(r1.left + halfW - r2.left) < 8 && Math.abs(r1.top - r2.bottom) < 8;
+                const isRight = Math.abs(r1.right - r2.left) < 10 && Math.abs(r1.top - r2.top) < 10;
+                const isBelow = Math.abs(r1.left + halfW - r2.left) < 10 && Math.abs(r1.bottom - r2.top) < 10;
+                const isAbove = Math.abs(r1.left + halfW - r2.left) < 10 && Math.abs(r1.top - r2.bottom) < 10;
 
                 if (isRight || isBelow || isAbove) {
                     d1.dataset.hasNeighbor = "true";
@@ -275,7 +252,6 @@
             });
         });
 
-        // Vizuális jelzés alkalmazása
         doms.forEach(d => {
             d.classList.remove('success', 'error');
             if (d.dataset.hasNeighbor === "true") {
@@ -288,6 +264,4 @@
     init();
 </script>
 </body>
-
 </html>
-
