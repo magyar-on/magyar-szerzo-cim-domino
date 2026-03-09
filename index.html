@@ -11,11 +11,11 @@
             --title-blue: #5ca3ff;
             --text-dark: #2c3e50;
             --domino-w: clamp(110px, 28vw, 160px);
-            --domino-h: clamp(40px, 12vw, 55px);
+            --domino-h: clamp(42px, 12vw, 55px);
         }
 
         body {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
             background-color: #f8f9fa;
             margin: 0;
             display: flex;
@@ -26,7 +26,6 @@
             touch-action: none; 
         }
 
-        /* Összecsukható fejléc stílusa */
         header {
             background-color: var(--header-bg);
             width: 100%;
@@ -34,22 +33,17 @@
             text-align: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             z-index: 100;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.4s ease;
             position: relative;
         }
 
-        header.collapsed {
-            transform: translateY(-100%); /* Teljesen feltolja a képernyőről */
-        }
+        header.collapsed { transform: translateY(-100%); }
 
-        .header-inner {
-            padding: 10px 0 35px 0; /* Alsó padding a gombnak */
-        }
+        .header-inner { padding: 10px 0 35px 0; }
 
         h1 { margin: 0; text-transform: uppercase; font-weight: 800; color: var(--text-dark); font-size: clamp(16px, 5vw, 22px); }
-        .instruction { color: #57606f; font-weight: 600; margin: 2px 0; font-size: 12px; }
+        .instruction { color: #57606f; font-weight: 600; margin: 5px 0; font-size: clamp(11px, 3.5vw, 14px); }
 
-        /* A fejlécet mozgató fül */
         #toggle-header {
             position: absolute;
             bottom: -25px;
@@ -62,11 +56,8 @@
             border-radius: 0 0 15px 15px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
             color: var(--author-blue);
+            font-weight: bold;
             z-index: 110;
         }
 
@@ -79,6 +70,7 @@
             font-weight: bold;
             margin-top: 5px;
             cursor: pointer;
+            font-size: 14px;
         }
 
         #game-board {
@@ -87,9 +79,6 @@
             position: relative;
             background-image: radial-gradient(#ced6e0 1px, transparent 1px);
             background-size: 25px 25px;
-            /* Biztosítja, hogy a board kitöltse a helyet, ha a header felcsúszik */
-            margin-top: 0; 
-            transition: all 0.4s ease;
         }
 
         .domino {
@@ -102,10 +91,11 @@
             border-radius: 8px;
             box-shadow: 0 3px 6px rgba(0,0,0,0.15);
             background: white;
-            border: 2px solid transparent;
+            border: 2px solid #fff;
             z-index: 10;
             touch-action: none;
         }
+        .domino:active { cursor: grabbing; z-index: 1000; }
 
         .part {
             flex: 1;
@@ -114,16 +104,17 @@
             justify-content: center;
             padding: 4px;
             text-align: center;
-            font-size: calc(var(--domino-h) * 0.22);
+            font-size: calc(var(--domino-h) * 0.23);
             font-weight: 700;
             line-height: 1.1;
             pointer-events: none;
+            color: white;
         }
 
-        .title-side { background-color: var(--title-blue); color: white; border-radius: 6px 0 0 6px; }
-        .author-side { background-color: var(--author-blue); color: white; border-radius: 0 6px 6px 0; }
+        .title-side { background-color: var(--title-blue); border-radius: 6px 0 0 6px; }
+        .author-side { background-color: var(--author-blue); border-radius: 0 6px 6px 0; border-left: 1px solid rgba(255,255,255,0.2); }
 
-        .success { border-color: #2ecc71 !important; box-shadow: 0 0 10px rgba(46, 204, 113, 0.5); }
+        .success { border-color: #2ecc71 !important; box-shadow: 0 0 12px rgba(46, 204, 113, 0.6); }
         .error { border-color: #e74c3c !important; }
     </style>
 </head>
@@ -187,7 +178,6 @@
     const header = document.getElementById('main-header');
     const toggleBtn = document.getElementById('toggle-header');
 
-    // Fejléc fel-le húzása
     function toggleHeader() {
         header.classList.toggle('collapsed');
         toggleBtn.innerHTML = header.classList.contains('collapsed') ? '▼' : '▲';
@@ -195,15 +185,19 @@
 
     function init() {
         const boardWidth = window.innerWidth;
-        const boardHeight = window.innerHeight - 50; // Becsült szabad hely
+        // Biztosítjuk, hogy a magasság ne legyen 0 indításkor
+        const boardHeight = Math.max(window.innerHeight - 150, 300);
         
         dominoAdatok.forEach((d, i) => {
             const el = document.createElement('div');
             el.className = 'domino';
-            const x = Math.random() * (boardWidth * 0.65);
-            const y = Math.random() * (boardHeight * 0.6);
-            el.style.left = x + 'px';
-            el.style.top = y + 'px';
+            
+            // Szétszórás a képernyő látható részén
+            const x = Math.random() * (boardWidth - 160);
+            const y = Math.random() * (boardHeight - 100);
+            
+            el.style.left = Math.max(10, x) + 'px';
+            el.style.top = Math.max(10, y) + 'px';
             el.innerHTML = `<div class="part title-side">${d.bal}</div><div class="part author-side">${d.jobb}</div>`;
             makeDraggable(el);
             board.appendChild(el);
@@ -221,11 +215,9 @@
             el.style.zIndex = 1000;
 
             el.onpointermove = (ev) => {
-                let x = ev.clientX - offsetX;
-                // A board pozíciójához képest számolunk, hogy a gördülő header ne zavarjon
                 let boardRect = board.getBoundingClientRect();
+                let x = ev.clientX - offsetX;
                 let y = ev.clientY - offsetY - boardRect.top;
-                
                 el.style.left = x + 'px';
                 el.style.top = y + 'px';
                 snap(el);
@@ -244,7 +236,7 @@
         const others = document.querySelectorAll('.domino');
         const dW = active.offsetWidth;
         const dH = active.offsetHeight;
-        const threshold = 20;
+        const threshold = 22;
 
         others.forEach(other => {
             if (other === active) return;
@@ -291,6 +283,32 @@
                 const r2 = d2.getBoundingClientRect();
                 const title = d2.querySelector('.title-side').innerText;
 
-                const isRight = Math.abs(r1.right - r2.left) < 12 && Math.abs(r1.top - r2.top) < 12;
-                const isBelow = Math.abs(r1.left + dW/2 - r2.left) < 12 && Math.abs(r1.bottom - r2.top) < 12;
-                const isAbove = Math.abs(r1.left
+                const isRight = Math.abs(r1.right - r2.left) < 15 && Math.abs(r1.top - r2.top) < 15;
+                const isBelow = Math.abs(r1.left + dW/2 - r2.left) < 15 && Math.abs(r1.bottom - r2.top) < 15;
+                const isAbove = Math.abs(r1.left + dW/2 - r2.left) < 15 && Math.abs(r1.top - r2.bottom) < 15;
+
+                if (isRight || isBelow || isAbove) {
+                    d1.dataset.hasNeighbor = "true";
+                    d2.dataset.hasNeighbor = "true";
+                    if (helyesParing[author] === title) {
+                        d1.dataset.valid = "true";
+                        d2.dataset.valid = "true";
+                    }
+                }
+            });
+        });
+
+        doms.forEach(d => {
+            d.classList.remove('success', 'error');
+            if (d.dataset.hasNeighbor === "true") {
+                if (d.dataset.valid === "true") d.classList.add('success');
+                else d.classList.add('error');
+            }
+        });
+    }
+
+    // Kis késleltetés az indításnál, hogy a böngésző biztosan betöltse a méreteket
+    setTimeout(init, 100);
+</script>
+</body>
+</html>
