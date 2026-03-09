@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IRODALMI DOMINÓ - PRO</title>
+    <title>IRODALMI DOMINÓ</title>
     <style>
         :root {
+            --header-bg: #f0f7ff;
             --author-blue: #00167a;
             --title-blue: #5ca3ff;
-            --zoom: 1; /* Ezt változtatja a csúszka */
+            --text-dark: #2c3e50;
+            --zoom: 1; /* A csúszka ezt állítja */
             --base-w: 150px;
             --base-h: 50px;
         }
 
         body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #e9ecef;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: #f1f2f6;
             margin: 0;
             display: flex;
             flex-direction: column;
@@ -24,44 +26,71 @@
             touch-action: none;
         }
 
+        /* Összecsukható fejléc */
         header {
-            background: #fff;
-            padding: 10px;
+            background-color: var(--header-bg);
+            width: 100%;
+            padding: 0;
             text-align: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             z-index: 100;
+            transition: transform 0.4s ease;
+            position: relative;
+        }
+
+        header.collapsed { transform: translateY(-100%); }
+
+        .header-inner { padding: 10px 0 35px 0; }
+
+        h1 { margin: 0; text-transform: uppercase; font-weight: 800; color: var(--text-dark); font-size: clamp(16px, 5vw, 22px); }
+        .instruction { color: #57606f; font-weight: 600; margin: 4px 0; font-size: clamp(11px, 3.5vw, 13px); }
+
+        #toggle-header {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 25px;
+            background: var(--header-bg);
+            border: none;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            cursor: pointer;
+            color: var(--author-blue);
+            z-index: 110;
         }
 
         .controls {
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             align-items: center;
             gap: 10px;
-            margin-top: 5px;
+            margin-top: 8px;
         }
 
-        /* Zoom csúszka stílusa */
-        .zoom-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: #f1f2f6;
-            padding: 5px 15px;
+        #check-btn {
+            padding: 8px 25px;
+            background-color: var(--author-blue);
+            color: white;
+            border: none;
             border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
         }
 
+        /* Játéktér */
         #game-board {
             flex-grow: 1;
+            width: 100%;
             position: relative;
-            cursor: grab;
-            background-image: 
-                linear-gradient(rgba(200,200,200,0.2) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(200,200,200,0.2) 1px, transparent 1px);
-            background-size: 50px 50px;
+            background-image: radial-gradient(#ced6e0 1px, transparent 1px);
+            background-size: 30px 30px;
             overflow: hidden;
+            cursor: grab;
         }
 
-        /* Ez a láthatatlan nagy asztal, amit mozgatunk */
+        /* A nagy asztal, amit mozgatunk */
         #world {
             position: absolute;
             top: 0;
@@ -76,11 +105,12 @@
             height: calc(var(--base-h) * var(--zoom));
             position: absolute;
             display: flex;
-            border-radius: 6px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
             background: white;
             border: 2px solid #fff;
             touch-action: none;
+            z-index: 10;
         }
 
         .part {
@@ -88,43 +118,34 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 2px;
+            padding: 3px;
             text-align: center;
-            font-size: calc(11px * var(--zoom));
+            font-size: calc(10px * var(--zoom));
             font-weight: 700;
-            color: white;
+            line-height: 1.1;
             pointer-events: none;
-        }
-
-        .title-side { background: var(--title-blue); border-radius: 4px 0 0 4px; }
-        .author-side { background: var(--author-blue); border-radius: 0 4px 4px 0; }
-
-        .success { border: 3px solid #2ecc71 !important; }
-        .error { border: 3px solid #e74c3c !important; }
-
-        button {
-            background: var(--author-blue);
             color: white;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 15px;
-            font-weight: bold;
         }
+
+        .title-side { background-color: var(--title-blue); border-radius: 6px 0 0 6px; }
+        .author-side { background-color: var(--author-blue); border-radius: 0 6px 6px 0; border-left: 1px solid rgba(255,255,255,0.2); }
+
+        .success { border: 3px solid #2ecc71 !important; box-shadow: 0 0 15px rgba(46, 204, 113, 0.5); }
+        .error { border: 3px solid #e74c3c !important; }
     </style>
 </head>
 <body>
 
-<header>
-    <h2 style="margin:0; font-size: 18px;">IRODALMI DOMINÓ</h2>
-    <p style="margin:2px; font-size: 12px;">Párosítsd a szerzőket és a műveket!</p>
-    <div class="controls">
-        <div class="zoom-container">
-            <span style="font-size: 12px;">Kicsinyítés</span>
-            <input type="range" id="zoom-slider" min="0.5" max="1.5" step="0.1" value="1">
-            <span style="font-size: 12px;">Nagyítás</span>
+<header id="main-header">
+    <div class="header-inner">
+        <h1>IRODALMI DOMINÓ</h1>
+        <p class="instruction">Párosítsd a szerzőket és a műveket!</p>
+        <div class="controls">
+            <input type="range" id="zoom-slider" min="0.5" max="1.5" step="0.1" value="1" title="Nagyítás">
+            <button id="check-btn" onclick="checkGame()">ELLENŐRZÉS</button>
         </div>
-        <button onclick="checkGame()">ELLENŐRZÉS</button>
     </div>
+    <button id="toggle-header" onclick="toggleHeader()">▲</button>
 </header>
 
 <div id="game-board">
@@ -158,18 +179,23 @@
 
     const world = document.getElementById('world');
     const board = document.getElementById('game-board');
+    const header = document.getElementById('main-header');
+    const toggleBtn = document.getElementById('toggle-header');
     const slider = document.getElementById('zoom-slider');
-    
-    let worldX = 0, worldY = 0;
-    let currentZoom = 1;
 
-    // Zoom kezelése
+    let worldX = 0, worldY = 0, currentZoom = 1;
+
+    function toggleHeader() {
+        header.classList.toggle('collapsed');
+        toggleBtn.innerHTML = header.classList.contains('collapsed') ? '▼' : '▲';
+    }
+
     slider.oninput = (e) => {
-        currentZoom = e.target.value;
+        currentZoom = parseFloat(e.target.value);
         document.documentElement.style.setProperty('--zoom', currentZoom);
     };
 
-    // Asztal mozgatása (Panning)
+    // Világ mozgatása (Panning)
     board.onpointerdown = (e) => {
         if (e.target !== board) return;
         let startX = e.clientX - worldX;
@@ -180,16 +206,16 @@
             worldY = ev.clientY - startY;
             world.style.transform = `translate(${worldX}px, ${worldY}px)`;
         };
-        board.onpointerup = () => { board.onpointermove = null; };
+        board.onpointerup = () => board.onpointermove = null;
     };
 
     function init() {
+        // Központi helyre szórjuk a dominókat
         dominoAdatok.forEach((d, i) => {
             const el = document.createElement('div');
             el.className = 'domino';
-            // Szélesebb körben szórjuk szét a "világban"
-            el.style.left = (Math.random() * 800 + 100) + 'px';
-            el.style.top = (Math.random() * 800 + 100) + 'px';
+            el.style.left = (Math.random() * 200 + 50) + 'px';
+            el.style.top = (Math.random() * 400 + 50) + 'px';
             el.innerHTML = `<div class="part title-side">${d.bal}</div><div class="part author-side">${d.jobb}</div>`;
             makeDraggable(el);
             world.appendChild(el);
@@ -205,42 +231,71 @@
             offX = (e.clientX - rect.left) / currentZoom;
             offY = (e.clientY - rect.top) / currentZoom;
             el.classList.remove('success', 'error');
+            el.style.zIndex = 1000;
 
             el.onpointermove = (ev) => {
-                // A világ koordináta-rendszerében számolunk
-                let newX = (ev.clientX - worldX) / 1 - offX;
-                let newY = (ev.clientY - worldY) / 1 - offY;
+                let newX = (ev.clientX - worldX) / currentZoom - offX;
+                let newY = (ev.clientY - worldY) / currentZoom - offY;
                 el.style.left = newX + "px";
                 el.style.top = newY + "px";
+                snap(el);
             };
-            el.onpointerup = () => { el.onpointermove = null; };
+            el.onpointerup = () => { el.onpointermove = null; el.style.zIndex = 10; };
         };
+    }
+
+    function snap(active) {
+        const others = document.querySelectorAll('.domino');
+        const r1 = active.getBoundingClientRect();
+        const baseW = 150 * currentZoom;
+        const baseH = 50 * currentZoom;
+
+        others.forEach(other => {
+            if (other === active) return;
+            const r2 = other.getBoundingClientRect();
+            const threshold = 20 * currentZoom;
+
+            if (Math.abs(r1.top - r2.top) < threshold) {
+                if (Math.abs(r1.right - r2.left) < threshold) { // Jobbra
+                    active.style.left = (parseFloat(other.style.left) - 150) + "px";
+                    active.style.top = other.style.top;
+                } else if (Math.abs(r1.left - r2.right) < threshold) { // Balra
+                    active.style.left = (parseFloat(other.style.left) + 150) + "px";
+                    active.style.top = other.style.top;
+                }
+            }
+            if (Math.abs(r1.left + (baseW/2) - r2.left) < threshold) {
+                if (Math.abs(r1.bottom - r2.top) < threshold) { // Fölé
+                    active.style.top = (parseFloat(other.style.top) - 50) + "px";
+                    active.style.left = (parseFloat(other.style.left) + 75) + "px";
+                } else if (Math.abs(r1.top - r2.bottom) < threshold) { // Alá
+                    active.style.top = (parseFloat(other.style.top) + 50) + "px";
+                    active.style.left = (parseFloat(other.style.left) + 75) + "px";
+                }
+            }
+        });
     }
 
     function checkGame() {
         const doms = Array.from(document.querySelectorAll('.domino'));
-        const dW = 150; // Alap szélesség
-        const dH = 50;  // Alap magasság
-
         doms.forEach(d => { d.classList.remove('success', 'error'); d.dataset.valid = "false"; });
 
         doms.forEach(d1 => {
-            const r1 = { x: parseFloat(d1.style.left), y: parseFloat(d1.style.top) };
+            const r1 = d1.getBoundingClientRect();
             const author = d1.querySelector('.author-side').innerText;
 
             doms.forEach(d2 => {
                 if (d1 === d2) return;
-                const r2 = { x: parseFloat(d2.style.left), y: parseFloat(d2.style.top) };
+                const r2 = d2.getBoundingClientRect();
                 const title = d2.querySelector('.title-side').innerText;
 
-                const matchRight = Math.abs((r1.x + dW) - r2.x) < 15 && Math.abs(r1.y - r2.y) < 15;
-                const matchBelow = Math.abs((r1.x + dW/2) - r2.x) < 15 && Math.abs((r1.y + dH) - r2.y) < 15;
-                const matchAbove = Math.abs((r1.x + dW/2) - r2.x) < 15 && Math.abs(r1.y - (r2.y + dH)) < 15;
+                const matchRight = Math.abs(r1.right - r2.left) < 15 && Math.abs(r1.top - r2.top) < 15;
+                const matchBelow = Math.abs(r1.left + (r1.width/2) - r2.left) < 15 && Math.abs(r1.bottom - r2.top) < 15;
+                const matchAbove = Math.abs(r1.left + (r1.width/2) - r2.left) < 15 && Math.abs(r1.top - r2.bottom) < 15;
 
                 if (matchRight || matchBelow || matchAbove) {
                     if (helyesParing[author] === title) {
-                        d1.classList.add('success');
-                        d2.classList.add('success');
+                        d1.classList.add('success'); d2.classList.add('success');
                     } else {
                         d1.classList.add('error');
                     }
