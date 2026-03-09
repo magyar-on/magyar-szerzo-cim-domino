@@ -10,14 +10,14 @@
             --author-blue: #00167a;
             --title-blue: #5ca3ff;
             --text-dark: #2c3e50;
-            --zoom: 1; /* A csúszka ezt állítja */
-            --base-w: 150px;
-            --base-h: 50px;
+            --zoom: 1;
+            --base-w: 160px;
+            --base-h: 55px;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background-color: #f1f2f6;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #e9ecef;
             margin: 0;
             display: flex;
             flex-direction: column;
@@ -26,7 +26,6 @@
             touch-action: none;
         }
 
-        /* Összecsukható fejléc */
         header {
             background-color: var(--header-bg);
             width: 100%;
@@ -42,8 +41,8 @@
 
         .header-inner { padding: 10px 0 35px 0; }
 
-        h1 { margin: 0; text-transform: uppercase; font-weight: 800; color: var(--text-dark); font-size: clamp(16px, 5vw, 22px); }
-        .instruction { color: #57606f; font-weight: 600; margin: 4px 0; font-size: clamp(11px, 3.5vw, 13px); }
+        h1 { margin: 0; text-transform: uppercase; font-weight: 800; color: var(--text-dark); font-size: 20px; }
+        .instruction { color: #57606f; font-weight: 600; margin: 4px 0; font-size: 13px; }
 
         #toggle-header {
             position: absolute;
@@ -65,8 +64,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px;
-            margin-top: 8px;
+            gap: 15px;
+            margin-top: 5px;
         }
 
         #check-btn {
@@ -79,7 +78,6 @@
             cursor: pointer;
         }
 
-        /* Játéktér */
         #game-board {
             flex-grow: 1;
             width: 100%;
@@ -90,13 +88,12 @@
             cursor: grab;
         }
 
-        /* A nagy asztal, amit mozgatunk */
         #world {
             position: absolute;
             top: 0;
             left: 0;
-            width: 3000px;
-            height: 3000px;
+            width: 2500px;
+            height: 2500px;
             transform-origin: 0 0;
         }
 
@@ -118,13 +115,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 3px;
+            padding: 4px;
             text-align: center;
-            font-size: calc(10px * var(--zoom));
+            font-size: calc(11px * var(--zoom));
             font-weight: 700;
             line-height: 1.1;
-            pointer-events: none;
             color: white;
+            pointer-events: none;
         }
 
         .title-side { background-color: var(--title-blue); border-radius: 6px 0 0 6px; }
@@ -132,6 +129,8 @@
 
         .success { border: 3px solid #2ecc71 !important; box-shadow: 0 0 15px rgba(46, 204, 113, 0.5); }
         .error { border: 3px solid #e74c3c !important; }
+
+        #zoom-slider { width: 80px; }
     </style>
 </head>
 <body>
@@ -141,7 +140,7 @@
         <h1>IRODALMI DOMINÓ</h1>
         <p class="instruction">Párosítsd a szerzőket és a műveket!</p>
         <div class="controls">
-            <input type="range" id="zoom-slider" min="0.5" max="1.5" step="0.1" value="1" title="Nagyítás">
+            <input type="range" id="zoom-slider" min="0.4" max="1.3" step="0.1" value="1">
             <button id="check-btn" onclick="checkGame()">ELLENŐRZÉS</button>
         </div>
     </div>
@@ -195,7 +194,6 @@
         document.documentElement.style.setProperty('--zoom', currentZoom);
     };
 
-    // Világ mozgatása (Panning)
     board.onpointerdown = (e) => {
         if (e.target !== board) return;
         let startX = e.clientX - worldX;
@@ -210,12 +208,21 @@
     };
 
     function init() {
-        // Központi helyre szórjuk a dominókat
+        // Rács generálása az asztalon (5 oszlop, 4 sor)
+        let slots = [];
+        for(let r=0; r<4; r++) {
+            for(let c=0; c<5; c++) {
+                slots.push({ x: c * 200 + 40, y: r * 100 + 40 });
+            }
+        }
+        slots.sort(() => Math.random() - 0.5); // Rács helyeinek megkeverése
+
         dominoAdatok.forEach((d, i) => {
             const el = document.createElement('div');
             el.className = 'domino';
-            el.style.left = (Math.random() * 200 + 50) + 'px';
-            el.style.top = (Math.random() * 400 + 50) + 'px';
+            const pos = slots[i];
+            el.style.left = pos.x + 'px';
+            el.style.top = pos.y + 'px';
             el.innerHTML = `<div class="part title-side">${d.bal}</div><div class="part author-side">${d.jobb}</div>`;
             makeDraggable(el);
             world.appendChild(el);
@@ -247,30 +254,32 @@
     function snap(active) {
         const others = document.querySelectorAll('.domino');
         const r1 = active.getBoundingClientRect();
-        const baseW = 150 * currentZoom;
-        const baseH = 50 * currentZoom;
+        const dW = 160 * currentZoom;
+        const dH = 55 * currentZoom;
 
         others.forEach(other => {
             if (other === active) return;
             const r2 = other.getBoundingClientRect();
-            const threshold = 20 * currentZoom;
+            const threshold = 25 * currentZoom;
 
+            // Vízszintes
             if (Math.abs(r1.top - r2.top) < threshold) {
-                if (Math.abs(r1.right - r2.left) < threshold) { // Jobbra
-                    active.style.left = (parseFloat(other.style.left) - 150) + "px";
+                if (Math.abs(r1.right - r2.left) < threshold) {
+                    active.style.left = (parseFloat(other.style.left) - 160) + "px";
                     active.style.top = other.style.top;
-                } else if (Math.abs(r1.left - r2.right) < threshold) { // Balra
-                    active.style.left = (parseFloat(other.style.left) + 150) + "px";
+                } else if (Math.abs(r1.left - r2.right) < threshold) {
+                    active.style.left = (parseFloat(other.style.left) + 160) + "px";
                     active.style.top = other.style.top;
                 }
             }
-            if (Math.abs(r1.left + (baseW/2) - r2.left) < threshold) {
+            // Függőleges (lépcsősen)
+            if (Math.abs(r1.left + (dW/2) - r2.left) < threshold) {
                 if (Math.abs(r1.bottom - r2.top) < threshold) { // Fölé
-                    active.style.top = (parseFloat(other.style.top) - 50) + "px";
-                    active.style.left = (parseFloat(other.style.left) + 75) + "px";
+                    active.style.top = (parseFloat(other.style.top) - 55) + "px";
+                    active.style.left = (parseFloat(other.style.left) + 80) + "px";
                 } else if (Math.abs(r1.top - r2.bottom) < threshold) { // Alá
-                    active.style.top = (parseFloat(other.style.top) + 50) + "px";
-                    active.style.left = (parseFloat(other.style.left) + 75) + "px";
+                    active.style.top = (parseFloat(other.style.top) + 55) + "px";
+                    active.style.left = (parseFloat(other.style.left) + 80) + "px";
                 }
             }
         });
